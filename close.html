@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Penyata Imbangan POS & Laci Tunai</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans min-h-screen pb-12">
+
+    <!-- Header Navigation -->
+    <header class="bg-indigo-900 text-white shadow-lg">
+        <div class="max-w-6xl mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div>
+                <h1 class="text-2xl font-bold tracking-wide">Penyata Imbangan POS</h1>
+                <p class="text-xs text-indigo-200">Sistem Penyelarasan Jualan Tunai & QR Code</p>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="confirmAndOpenModal()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-sm px-4 py-2 rounded-lg font-bold shadow flex items-center gap-2 transition active:scale-95">
+                    <span>✅</span> Sahkan & Salin WhatsApp
+                </button>
+                <button onclick="resetForm()" class="bg-slate-700 hover:bg-slate-600 text-white text-sm px-3 py-2 rounded-lg font-medium shadow transition">
+                    🔄 Semula
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Notifikasi Toast -->
+    <div id="toast" class="fixed top-5 right-5 bg-emerald-800 text-white px-5 py-3 rounded-xl shadow-2xl transition-all duration-300 opacity-0 pointer-events-none transform translate-y-[-10px] flex items-center gap-3 z-50">
+        <span class="text-xl">📋</span>
+        <div>
+            <p class="font-bold text-sm">Berjaya Disalin!</p>
+            <p class="text-xs text-emerald-200">Laporan telah disalin. Boleh terus 'Paste' di WhatsApp.</p>
+        </div>
+    </div>
+
+    <!-- MODAL PENGESAHAN LAPORAN -->
+    <div id="confirmModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-300">
+        <div class="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden transform scale-95 transition-transform duration-300" id="modalCard">
+            <!-- Modal Header -->
+            <div class="bg-indigo-900 text-white p-4 flex justify-between items-center">
+                <h3 class="font-bold text-lg flex items-center gap-2">
+                    <span>📑</span> Pengesahan Laporan Imbangan
+                </h3>
+                <button onclick="closeModal()" class="text-indigo-200 hover:text-white text-xl font-bold px-2">&times;</button>
+            </div>
+            
+            <!-- Modal Body -->
+            <div class="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
+                <div id="modalStatusBadge" class="p-3 rounded-xl text-center text-xs font-bold border">
+                    <!-- Status Diisi Melalui JS -->
+                </div>
+
+                <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2 text-xs">
+                    <div class="flex justify-between border-b pb-2">
+                        <span class="text-slate-500">Tarikh / Cawangan:</span>
+                        <span class="font-bold text-slate-800" id="modalMeta">-</span>
+                    </div>
+                    <div class="flex justify-between border-b pb-2">
+                        <span class="text-slate-500">Juruwang:</span>
+                        <span class="font-bold text-slate-800" id="modalCashier">-</span>
+                    </div>
+                    <div class="flex justify-between border-b pb-2">
+                        <span class="text-slate-500">Jumlah Jualan POS (Tunai+QR):</span>
+                        <span class="font-bold text-indigo-900" id="modalPosSales">RM 0.00</span>
+                    </div>
+                    <div class="flex justify-between border-b pb-2">
+                        <span class="text-slate-500">Status Imbangan Tunai:</span>
+                        <span class="font-bold" id="modalCashStatus">RM 0.00</span>
+                    </div>
+                    <div class="flex justify-between border-b pb-2">
+                        <span class="text-slate-500">Status Imbangan QR:</span>
+                        <span class="font-bold" id="modalQrStatus">RM 0.00</span>
+                    </div>
+                    <div class="flex justify-between pt-1 text-sm font-black text-emerald-700">
+                        <span>JUMLAH WANG BANK-IN:</span>
+                        <span id="modalBankIn">RM 0.00</span>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 mb-1">Preview Mesej WhatsApp:</label>
+                    <textarea id="whatsappPreview" readonly class="w-full h-36 p-3 bg-slate-900 text-emerald-400 font-mono text-xs rounded-xl border border-slate-800 focus:outline-none leading-relaxed select-all"></textarea>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="bg-slate-100 p-4 border-t border-slate-200 flex gap-2 justify-end">
+                <button onclick="closeModal()" class="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold rounded-lg transition">
+                    Batal / Edit
+                </button>
+                <button onclick="copyWhatsAppReport()" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg shadow flex items-center gap-1 transition">
+                    <span>💬</span> Salin Mesej WhatsApp
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <main class="max-w-6xl mx-auto px-4 mt-6">
+        
+        <!-- Maklumat Am -->
+        <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Tarikh Rekod</label>
+                <input type="date" id="recordDate" oninput="calculateAll()" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-sm font-semibold focus:ring-2 focus:ring-indigo-500 outline-none">
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Cawangan / Laci</label>
+                <input type="text" id="branchName" placeholder="Contoh: Kaunter Utama / Shift A" oninput="calculateAll()" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Nama Juruwang</label>
+                <input type="text" id="cashierName" placeholder="Nama Juruwang" oninput="calculateAll()" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- BAHAGIAN 1: REKOD POS SYSTEM -->
+            <div class="lg:col-span-5 space-y-6">
+                
+                <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                    <div class="flex items-center justify-between mb-4 pb-2 border-b border-slate-100">
+                        <h2 class="text-base font-bold text-slate-800 flex items-center gap-2">
+                            <span>💻</span> 1. REKOD PADA POS SYSTEM
+                        </h2>
+                        <span class="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-bold uppercase">Laporan POS</span>
+                    </div>
+
+                    <div class="space-y-4">
+                        <!-- Jualan Tunai POS -->
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1">
+                                Jualan Tunai POS (Cash Sales)
+                            </label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-2.5 text-slate-400 text-sm font-semibold">RM</span>
+                                <input type="number" id="posCashSales" step="0.01" value="0.00" oninput="calculateAll()" class="w-full pl-10 pr-3 py-2 bg-emerald-50 border border-emerald-300 rounded-lg font-semibold text-emerald-900 text-sm focus:ring-2 focus:ring-emerald-500 outline-none">
+                            </div>
+                        </div>
+
+                        <!-- Jualan QR Code POS -->
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1">
+                                Jualan QR Code POS (DuitNow/QR Sales)
+                            </label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-2.5 text-slate-400 text-sm font-semibold">RM</span>
+                                <input type="number" id="posQrSales" step="0.01" value="0.00" oninput="calculateAll()" class="w-full pl-10 pr-3 py-2 bg-purple-50 border border-purple-300 rounded-lg font-semibold text-purple-900 text-sm focus:ring-2 focus:ring-purple-500 outline-none">
+                            </div>
+                        </div>
+
+                        <!-- Ringkasan Jumlah Jualan POS -->
+                        <div class="p-3 bg-slate-50 rounded-lg border border-slate-200 flex justify-between items-center text-xs">
+                            <span class="font-bold text-slate-600">JUMLAH JUALAN POS:</span>
+                            <span id="dispTotalPosSales" class="font-black text-indigo-900 text-sm">RM 0.00</span>
+                        </div>
+
+                        <hr class="my-3 border-dashed">
+
+                        <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Pergerakan Laci Tunai</p>
+
+                        <!-- Modal Permulaan -->
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600 mb-1">
+                                Modal Permulaan (Kelmarin)
+                            </label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-2.5 text-slate-400 text-sm font-semibold">RM</span>
+                                <input type="number" id="startCashToday" step="0.01" value="0.00" oninput="calculateAll()" class="w-full pl-10 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-lg font-semibold text-slate-800 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                            </div>
+                        </div>
+
+                        <!-- Cash In -->
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600 mb-1">
+                                Cash In (Duit Masuk)
+                            </label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-2.5 text-slate-400 text-sm font-semibold">RM</span>
+                                <input type="number" id="cashIn" step="0.01" value="0.00" oninput="calculateAll()" class="w-full pl-10 pr-3 py-2 bg-blue-50 border border-blue-300 rounded-lg font-semibold text-blue-900 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                            </div>
+                        </div>
+
+                        <!-- Cash Out (Senarai Perbelanjaan Kedai) -->
+                        <div class="bg-rose-50/70 p-3 rounded-xl border border-rose-200 space-y-2">
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="block text-xs font-bold text-rose-900">
+                                    Cash Out (Penggunaan Duit Kedai)
+                                </label>
+                                <span class="text-xs font-black text-rose-800" id="dispTotalCashOut">RM 0.00</span>
+                            </div>
+                            <p class="text-[10px] text-rose-600 mb-2">Rekod apa yang dibeli guna duit laci dan berapakah jumlahnya:</p>
+
+                            <!-- Senarai Item Belanja -->
+                            <div id="cashOutList" class="space-y-2">
+                                <!-- Item dimasukkan secara dinamik melalui JS -->
+                            </div>
+
+                            <button type="button" onclick="addCashOutItem()" class="w-full mt-2 py-1.5 bg-rose-100 hover:bg-rose-200 text-rose-800 border border-rose-300 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition">
+                                <span>➕</span> Tambah Rekod Belanja / Cash Out
+                            </button>
+                        </div>
+
+                        <!-- Modal Ditentu Untuk Esok -->
+                        <div>
+                            <label class="block text-xs font-bold text-indigo-900 mb-1">
+                                Modal Ditinggal Untuk Esok Hari
+                            </label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-2.5 text-indigo-500 text-sm font-semibold">RM</span>
+                                <input type="number" id="startCashTomorrow" step="0.01" value="0.00" oninput="calculateAll()" class="w-full pl-10 pr-3 py-2 bg-indigo-50 border border-indigo-300 rounded-lg font-bold text-indigo-900 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Kad Status Imbangan Ringkas -->
+                <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 space-y-3">
+                    <h2 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Ringkasan Imbangan Sebenar</h2>
+                    
+                    <div id="cashStatusBox" class="p-3 rounded-lg border text-xs flex justify-between items-center bg-slate-50">
+                        <span class="font-bold">Status Tunai Laci:</span>
+                        <span id="cashStatusTxt" class="font-bold">RM 0.00</span>
+                    </div>
+
+                    <div id="qrStatusBox" class="p-3 rounded-lg border text-xs flex justify-between items-center bg-slate-50">
+                        <span class="font-bold">Status QR Code:</span>
+                        <span id="qrStatusTxt" class="font-bold">RM 0.00</span>
+                    </div>
+
+                    <div class="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex justify-between items-center">
+                        <div>
+                            <p class="text-xs font-bold text-emerald-800">JUMLAH TUNAI BANK-IN</p>
+                            <p class="text-[10px] text-emerald-600">(Duit Laci - Modal Esok)</p>
+                        </div>
+                        <span id="dispBankIn" class="text-lg font-black text-emerald-700">RM 0.00</span>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- BAHAGIAN 2: JUMLAH JUALAN SEBENAR (AUDIT FIZIKAL) -->
+            <div class="lg:col-span-7 space-y-6">
+                
+                <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                    <div class="flex items-center justify-between mb-4 pb-2 border-b border-slate-100">
+                        <h2 class="text-base font-bold text-slate-800 flex items-center gap-2">
+                            <span>🎯</span> 2. JUMLAH JUALAN / KUTIPAN SEBENAR
+                        </h2>
+                        <span class="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-bold uppercase">Audit Fizikal</span>
+                    </div>
+
+                    <!-- Input Kutipan QR Sebenar -->
+                    <div class="mb-5 p-3 bg-purple-50 rounded-xl border border-purple-200">
+                        <label class="block text-xs font-bold text-purple-900 mb-1">
+                            📲 Kutipan QR Sebenar (Penyata Bank / Merchant App)
+                        </label>
+                        <div class="relative">
+                            <span class="absolute left-3 top-2.5 text-purple-500 text-sm font-semibold">RM</span>
+                            <input type="number" id="actualQrSales" step="0.01" value="0.00" oninput="calculateAll()" class="w-full pl-10 pr-3 py-2 bg-white border border-purple-300 rounded-lg font-bold text-purple-900 text-sm focus:ring-2 focus:ring-purple-500 outline-none">
+                        </div>
+                        <span class="text-[10px] text-purple-700">Semak akaun bank/pembaca QR untuk jumlah transaksi sebenar yang masuk</span>
+                    </div>
+
+                    <!-- Pengiraan Pecahan Wang Tunai Laci -->
+                    <p class="text-xs font-bold text-slate-700 mb-2 flex items-center gap-1">
+                        <span>💵</span> Kiraan Tunai Fizikal Dalam Laci (Cash Count)
+                    </p>
+
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+                        <!-- RM100 -->
+                        <div class="bg-slate-50 p-2 rounded-lg border border-slate-200 flex flex-col justify-between">
+                            <span class="font-bold text-slate-700">RM 100</span>
+                            <div class="flex items-center gap-1 mt-1">
+                                <input type="number" min="0" value="0" oninput="calculateCashCount()" class="denom-qty w-full p-1 border rounded text-center font-semibold" data-value="100">
+                                <span class="text-[10px] text-slate-400">kpg</span>
+                            </div>
+                        </div>
+                        <!-- RM50 -->
+                        <div class="bg-slate-50 p-2 rounded-lg border border-slate-200 flex flex-col justify-between">
+                            <span class="font-bold text-slate-700">RM 50</span>
+                            <div class="flex items-center gap-1 mt-1">
+                                <input type="number" min="0" value="0" oninput="calculateCashCount()" class="denom-qty w-full p-1 border rounded text-center font-semibold" data-value="50">
+                                <span class="text-[10px] text-slate-400">kpg</span>
+                            </div>
+                        </div>
+                        <!-- RM20 -->
+                        <div class="bg-slate-50 p-2 rounded-lg border border-slate-200 flex flex-col justify-between">
+                            <span class="font-bold text-slate-700">RM 20</span>
+                            <div class="flex items-center gap-1 mt-1">
+                                <input type="number" min="0" value="0" oninput="calculateCashCount()" class="denom-qty w-full p-1 border rounded text-center font-semibold" data-value="20">
+                                <span class="text-[10px] text-slate-400">kpg</span>
+                            </div>
+                        </div>
+                        <!-- RM10 -->
+                        <div class="bg-slate-50 p-2 rounded-lg border border-slate-200 flex flex-col justify-between">
+                            <span class="font-bold text-slate-700">RM 10</span>
+                            <div class="flex items-center gap-1 mt-1">
+                                <input type="number" min="0" value="0" oninput="calculateCashCount()" class="denom-qty w-full p-1 border rounded text-center font-semibold" data-value="10">
+                                <span class="text-[10px] text-slate-400">kpg</span>
+                            </div>
+                        </div>
+                        <!-- RM5 -->
+                        <div class="bg-slate-50 p-2 rounded-lg border border-slate-200 flex flex-col justify-between">
+                            <span class="font-bold text-slate-700">RM 5</span>
+                            <div class="flex items-center gap-1 mt-1">
+                                <input type="number" min="0" value="0" oninput="calculateCashCount()" class="denom-qty w-full p-1 border rounded text-center font-semibold" data-value="5">
+                                <span class="text-[10px] text-slate-400">kpg</span>
+                            </div>
+                        </div>
+                        <!-- RM1 -->
+                        <div class="bg-slate-50 p-2 rounded-lg border border-slate-200 flex flex-col justify-between">
+                            <span class="font-bold text-slate-700">RM 1</span>
+                            <div class="flex items-center gap-1 mt-1">
+                                <input type="number" min="0" value="0" oninput="calculateCashCount()" class="denom-qty w-full p-1 border rounded text-center font-semibold" data-value="1">
+                                <span class="text-[10px] text-slate-400">kpg</span>
+                            </div>
+                        </div>
+                        <!-- Syiling 50c -->
+                        <div class="bg-slate-50 p-2 rounded-lg border border-slate-200 flex flex-col justify-between">
+                            <span class="font-bold text-slate-700">50 Sen</span>
+                            <div class="flex items-center gap-1 mt-1">
+                                <input type="number" min="0" value="0" oninput="calculateCashCount()" class="denom-qty w-full p-1 border rounded text-center font-semibold" data-value="0.50">
+                                <span class="text-[10px] text-slate-400">syiling</span>
+                            </div>
+                        </div>
+                        <!-- Syiling 20c -->
+                        <div class="bg-slate-50 p-2 rounded-lg border border-slate-200 flex flex-col justify-between">
+                            <span class="font-bold text-slate-700">20 Sen</span>
+                            <div class="flex items-center gap-1 mt-1">
+                                <input type="number" min="0" value="0" oninput="calculateCashCount()" class="denom-qty w-full p-1 border rounded text-center font-semibold" data-value="0.20">
+                                <span class="text-[10px] text-slate-400">syiling</span>
+                            </div>
+                        </div>
+                        <!-- Syiling 10c & 5c -->
+                        <div class="bg-slate-50 p-2 rounded-lg border border-slate-200 flex flex-col justify-between">
+                            <span class="font-bold text-slate-700">10c / 5c</span>
+                            <div class="flex items-center gap-1 mt-1">
+                                <input type="number" min="0" value="0" id="smallCoins" oninput="calculateCashCount()" class="w-full p-1 border rounded text-center font-semibold">
+                                <span class="text-[10px] text-slate-400">RM</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 pt-3 border-t flex justify-between items-center">
+                        <span class="text-xs font-bold text-slate-600">JUMLAH TUNAI SEBENAR (LACI):</span>
+                        <span id="totalDenomCount" class="text-base font-black text-indigo-700">RM 0.00</span>
+                    </div>
+
+                    <div class="mt-4">
+                        <label class="block text-xs font-bold text-slate-600 mb-1">Catatan / Sebab Perbezaan (Jika Ada)</label>
+                        <input type="text" id="notes" placeholder="Contoh: Terlebih QR RM10 sebab pelanggan tersilap bayar" oninput="calculateAll()" class="w-full p-2 bg-slate-50 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                    </div>
+
+                    <!-- BUTANG SAHKAN UTAMA -->
+                    <div class="mt-6">
+                        <button onclick="confirmAndOpenModal()" class="w-full py-3.5 bg-indigo-900 hover:bg-indigo-800 active:scale-[0.99] text-white rounded-xl font-bold text-sm shadow-lg flex items-center justify-center gap-2 transition">
+                            <span>✅</span> Sahkan Laporan & Hantar WhatsApp
+                        </button>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        // Set tarikh hari ini
+        document.getElementById('recordDate').valueAsDate = new Date();
+
+        // Senarai item perbelanjaan Cash Out
+        let cashOutItems = [];
+
+        function parseVal(id) {
+            const el = document.getElementById(id);
+            if (!el) return 0;
+            const val = parseFloat(el.value);
+            return isNaN(val) ? 0 : val;
+        }
+
+        function formatCurrency(amount) {
+            return 'RM ' + amount.toLocaleString('ms-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        // --- FUNGSI REKOD CASH OUT / BELANJA KEDAI ---
+        function addCashOutItem(itemName = '', itemAmount = '') {
+            const container = document.getElementById('cashOutList');
+            const itemId = 'cashout-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4);
+
+            const itemDiv = document.createElement('div');
+            itemDiv.id = itemId;
+            itemDiv.className = "flex items-center gap-2 bg-white p-2 rounded-lg border border-rose-200 shadow-sm";
+            itemDiv.innerHTML = `
+                <input type="text" placeholder="Beli apa? (Cth: Plastik parcel)" value="${itemName}" oninput="calculateAll()" class="cashout-name w-1/2 p-1.5 text-xs border border-slate-300 rounded outline-none focus:ring-1 focus:ring-rose-500">
+                <div class="relative w-1/2">
+                    <span class="absolute left-2 top-1.5 text-slate-400 text-xs font-semibold">RM</span>
+                    <input type="number" step="0.01" placeholder="0.00" value="${itemAmount}" oninput="calculateAll()" class="cashout-amount w-full pl-7 pr-2 py-1.5 text-xs font-bold text-rose-900 border border-slate-300 rounded outline-none focus:ring-1 focus:ring-rose-500">
+                </div>
+                <button type="button" onclick="removeCashOutItem('${itemId}')" class="text-rose-500 hover:text-rose-700 font-bold px-1 text-sm" title="Padam Item">&times;</button>
+            `;
+
+            container.appendChild(itemDiv);
+            calculateAll();
+        }
+
+        function removeCashOutItem(itemId) {
+            const el = document.getElementById(itemId);
+            if (el) el.remove();
+            calculateAll();
+        }
+
+        function getCashOutData() {
+            const names = document.querySelectorAll('.cashout-name');
+            const amounts = document.querySelectorAll('.cashout-amount');
+            let total = 0;
+            let list = [];
+
+            names.forEach((nameEl, idx) => {
+                const name = nameEl.value.trim();
+                const amt = parseFloat(amounts[idx].value) || 0;
+                if (amt > 0 || name !== '') {
+                    total += amt;
+                    list.push({ name: name || 'Belanja Runcit', amount: amt });
+                }
+            });
+
+            return { total, list };
+        }
+
+        // Kira pecahan wang tunai
+        function calculateCashCount() {
+            const qtyInputs = document.querySelectorAll('.denom-qty');
+            let totalCash = 0;
+
+            qtyInputs.forEach(input => {
+                const multiplier = parseFloat(input.getAttribute('data-value'));
+                const qty = parseInt(input.value) || 0;
+                totalCash += multiplier * qty;
+            });
+
+            const smallCoins = parseVal('smallCoins');
+            totalCash += smallCoins;
+
+            document.getElementById('totalDenomCount').textContent = formatCurrency(totalCash);
+            calculateAll(totalCash);
+        }
+
+        // Kira keseluruhan & simpan data laporan
+        function calculateAll(forcedActualCash = null) {
+            const dateVal = document.getElementById('recordDate').value || "Hari Ini";
+            const branchVal = document.getElementById('branchName').value || "-";
+            const cashierVal = document.getElementById('cashierName').value || "-";
+
+            // Rekod POS
+            const posCashSales = parseVal('posCashSales');
+            const posQrSales = parseVal('posQrSales');
+            const totalPosSales = posCashSales + posQrSales;
+
+            // Pergerakan Tunai & Belanja
+            const startCashToday = parseVal('startCashToday');
+            const cashIn = parseVal('cashIn');
+            const cashOutData = getCashOutData();
+            const cashOut = cashOutData.total;
+            const startCashTomorrow = parseVal('startCashTomorrow');
+            const notes = document.getElementById('notes').value || "Tiada";
+
+            document.getElementById('dispTotalCashOut').textContent = formatCurrency(cashOut);
+
+            // Sebenar (Actual)
+            const actualQrSales = parseVal('actualQrSales');
+
+            let actualCash = forcedActualCash;
+            if (actualCash === null) {
+                const qtyInputs = document.querySelectorAll('.denom-qty');
+                actualCash = 0;
+                qtyInputs.forEach(input => {
+                    const mult = parseFloat(input.getAttribute('data-value'));
+                    const q = parseInt(input.value) || 0;
+                    actualCash += mult * q;
+                });
+                actualCash += parseVal('smallCoins');
+            }
+
+            // Expected Cash dalam laci = Modal Kelmarin + POS Cash + Cash In - Cash Out
+            const expectedCashInDrawer = startCashToday + posCashSales + cashIn - cashOut;
+
+            // Perbezaan Tunai & QR
+            const cashDiff = actualCash - expectedCashInDrawer;
+            const qrDiff = actualQrSales - posQrSales;
+
+            const bankInAmount = Math.max(0, actualCash - startCashTomorrow);
+
+            // Update UI Ringkasan Utama
+            document.getElementById('dispTotalPosSales').textContent = formatCurrency(totalPosSales);
+            document.getElementById('dispBankIn').textContent = formatCurrency(bankInAmount);
+
+            // Format Status Tunai
+            const cashStatusTxt = document.getElementById('cashStatusTxt');
+            const cashStatusBox = document.getElementById('cashStatusBox');
+            let cashStatusStr = "";
+            let cashEmoji = "";
+
+            if (Math.abs(cashDiff) < 0.01) {
+                cashStatusBox.className = "p-3 rounded-lg border text-xs flex justify-between items-center bg-emerald-50 text-emerald-800 border-emerald-300";
+                cashStatusTxt.textContent = "SEIMBANG (TEPAT)";
+                cashStatusStr = "SEIMBANG (TEPAT)";
+                cashEmoji = "✅";
+            } else if (cashDiff > 0) {
+                cashStatusBox.className = "p-3 rounded-lg border text-xs flex justify-between items-center bg-blue-50 text-blue-800 border-blue-300";
+                cashStatusTxt.textContent = `TERLEBIH (+${formatCurrency(cashDiff)})`;
+                cashStatusStr = `TERLEBIH (+${formatCurrency(cashDiff)})`;
+                cashEmoji = "⚠️";
+            } else {
+                cashStatusBox.className = "p-3 rounded-lg border text-xs flex justify-between items-center bg-rose-50 text-rose-800 border-rose-300";
+                cashStatusTxt.textContent = `TERKURANG (-${formatCurrency(Math.abs(cashDiff))})`;
+                cashStatusStr = `TERKURANG (-${formatCurrency(Math.abs(cashDiff))})`;
+                cashEmoji = "❌";
+            }
+
+            // Format Status QR
+            const qrStatusTxt = document.getElementById('qrStatusTxt');
+            const qrStatusBox = document.getElementById('qrStatusBox');
+            let qrStatusStr = "";
+            let qrEmoji = "";
+
+            if (Math.abs(qrDiff) < 0.01) {
+                qrStatusBox.className = "p-3 rounded-lg border text-xs flex justify-between items-center bg-emerald-50 text-emerald-800 border-emerald-300";
+                qrStatusTxt.textContent = "SEIMBANG (TEPAT)";
+                qrStatusStr = "SEIMBANG (TEPAT)";
+                qrEmoji = "✅";
+            } else if (qrDiff > 0) {
+                qrStatusBox.className = "p-3 rounded-lg border text-xs flex justify-between items-center bg-blue-50 text-blue-800 border-blue-300";
+                qrStatusTxt.textContent = `TERLEBIH (+${formatCurrency(qrDiff)})`;
+                qrStatusStr = `TERLEBIH (+${formatCurrency(qrDiff)})`;
+                qrEmoji = "⚠️";
+            } else {
+                qrStatusBox.className = "p-3 rounded-lg border text-xs flex justify-between items-center bg-rose-50 text-rose-800 border-rose-300";
+                qrStatusTxt.textContent = `TERKURANG (-${formatCurrency(Math.abs(qrDiff))})`;
+                qrStatusStr = `TERKURANG (-${formatCurrency(Math.abs(qrDiff))})`;
+                qrEmoji = "❌";
+            }
+
+            // Kemaskini data untuk Modal
+            document.getElementById('modalMeta').textContent = `${dateVal} (${branchVal})`;
+            document.getElementById('modalCashier').textContent = cashierVal;
+            document.getElementById('modalPosSales').textContent = formatCurrency(totalPosSales);
+            document.getElementById('modalCashStatus').textContent = `${cashEmoji} ${cashStatusStr}`;
+            document.getElementById('modalQrStatus').textContent = `${qrEmoji} ${qrStatusStr}`;
+            document.getElementById('modalBankIn').textContent = formatCurrency(bankInAmount);
+
+            // Set Lencana Status Modal
+            const modalBadge = document.getElementById('modalStatusBadge');
+            if (Math.abs(cashDiff) < 0.01 && Math.abs(qrDiff) < 0.01) {
+                modalBadge.className = "p-3 rounded-xl text-center text-xs font-bold bg-emerald-100 text-emerald-800 border-emerald-300";
+                modalBadge.textContent = "✅ LAPORAN SEIMBANG & TEPAT";
+            } else {
+                modalBadge.className = "p-3 rounded-xl text-center text-xs font-bold bg-amber-100 text-amber-800 border-amber-300";
+                modalBadge.textContent = "⚠️ Terdapat Perbezaan (Over/Short) Pada Rekod";
+            }
+
+            // FORMAT ITEM BELANJA CASH OUT
+            let cashOutBreakdownStr = "";
+            if (cashOutData.list.length > 0) {
+                cashOutData.list.forEach((item, idx) => {
+                    cashOutBreakdownStr += `\n   └ ${idx + 1}. ${item.name}: ${formatCurrency(item.amount)}`;
+                });
+            } else {
+                cashOutBreakdownStr = " (Tiada)";
+            }
+
+            // BINA FORMAT TEKS WHATSAPP
+            const waText = 
+`📊 *LAPORAN PENYELARASAN SALES POS* 📊
+📅 *Tarikh:* ${dateVal}
+🏢 *Cawangan:* ${branchVal}
+👤 *Juruwang:* ${cashierVal}
+
+=================================
+1️⃣ *REKOD PADA POS SYSTEM*
+💵 Jualan Tunai (Cash): ${formatCurrency(posCashSales)}
+📲 Jualan QR Code: ${formatCurrency(posQrSales)}
+📈 *Jumlah Jualan POS:* *${formatCurrency(totalPosSales)}*
+
+---------------------------------
+⚙️ *Pergerakan Laci Tunai:*
+• Modal Kelmarin: ${formatCurrency(startCashToday)}
+• Cash In: ${formatCurrency(cashIn)}
+• Cash Out (Belanja): ${formatCurrency(cashOut)}${cashOutBreakdownStr}
+• Patut Ada Dalam Laci: ${formatCurrency(expectedCashInDrawer)}
+
+=================================
+2️⃣ *JUMLAH KUTIPAN SEBENAR (AUDIT)*
+💵 Tunai Sebenar (Fizikal): ${formatCurrency(actualCash)}
+📲 QR Sebenar (Penyata Bank): ${formatCurrency(actualQrSales)}
+
+---------------------------------
+🎯 *STATUS IMBANGAN:*
+${cashEmoji} *Tunai Laci:* *${cashStatusStr}*
+${qrEmoji} *QR Code:* *${qrStatusStr}*
+
+=================================
+🏦 *JUMLAH TUNAI BANK-IN:* *${formatCurrency(bankInAmount)}*
+🏧 *Modal Esok Hari:* ${formatCurrency(startCashTomorrow)}
+
+📝 *Catatan:* ${notes}`;
+
+            document.getElementById('whatsappPreview').value = waText;
+        }
+
+        // Buka Pop-up Pengesahan
+        function confirmAndOpenModal() {
+            calculateAll();
+            const modal = document.getElementById('confirmModal');
+            const card = document.getElementById('modalCard');
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            modal.classList.add('opacity-100');
+            card.classList.remove('scale-95');
+            card.classList.add('scale-100');
+        }
+
+        // Tutup Pop-up
+        function closeModal() {
+            const modal = document.getElementById('confirmModal');
+            const card = document.getElementById('modalCard');
+            modal.classList.remove('opacity-100');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            card.classList.remove('scale-100');
+            card.classList.add('scale-95');
+        }
+
+        // Salin Teks ke Clipboard
+        function copyWhatsAppReport() {
+            const textarea = document.getElementById('whatsappPreview');
+            textarea.select();
+            textarea.setSelectionRange(0, 99999);
+
+            try {
+                document.execCommand('copy');
+                closeModal();
+                showToast();
+            } catch (err) {
+                console.error('Gagal menyalin teks: ', err);
+            }
+        }
+
+        // Paparkan Notifikasi Toast
+        function showToast() {
+            const toast = document.getElementById('toast');
+            toast.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-[-10px]');
+            toast.classList.add('opacity-100', 'translate-y-0');
+
+            setTimeout(() => {
+                toast.classList.remove('opacity-100', 'translate-y-0');
+                toast.classList.add('opacity-0', 'pointer-events-none', 'translate-y-[-10px]');
+            }, 3000);
+        }
+
+        // Reset Form
+        function resetForm() {
+            document.getElementById('posCashSales').value = "0.00";
+            document.getElementById('posQrSales').value = "0.00";
+            document.getElementById('actualQrSales').value = "0.00";
+            document.getElementById('startCashToday').value = "0.00";
+            document.getElementById('cashIn').value = "0.00";
+            document.getElementById('startCashTomorrow').value = "0.00";
+            document.getElementById('smallCoins').value = "0";
+            document.getElementById('notes').value = "";
+            document.getElementById('branchName').value = "";
+            document.getElementById('cashierName').value = "";
+
+            // Kosongkan senarai belanja Cash Out
+            document.getElementById('cashOutList').innerHTML = "";
+
+            const qtyInputs = document.querySelectorAll('.denom-qty');
+            qtyInputs.forEach(input => input.value = "0");
+
+            calculateCashCount();
+        }
+
+        // Inisialisasi baris pertama Cash Out secara automatik
+        addCashOutItem();
+        calculateCashCount();
+    </script>
+</body>
+</html>
